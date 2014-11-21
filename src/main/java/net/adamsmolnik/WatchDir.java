@@ -42,7 +42,7 @@ public class WatchDir implements AutoCloseable {
                     return;
                 }
 
-                Path dir = keys.get(key);
+                Path dir = (Path) key.watchable();
                 if (dir == null) {
                     logger.info(String.format("WatchKey not recognized for key %s ", key));
                     continue;
@@ -85,15 +85,7 @@ public class WatchDir implements AutoCloseable {
                 }
 
                 // reset key and remove from set if directory no longer accessible
-                boolean valid = key.reset();
-                if (!valid) {
-                    keys.remove(key);
-
-                    // all directories are inaccessible
-                    if (keys.isEmpty()) {
-                        break;
-                    }
-                }
+                key.reset();
             }
         }
 
@@ -111,8 +103,6 @@ public class WatchDir implements AutoCloseable {
 
     private final WatchService watcher;
 
-    private final Map<WatchKey, Path> keys;
-
     private final boolean recursive;
 
     private final Set<EventHandler> eventHandlers;
@@ -128,8 +118,7 @@ public class WatchDir implements AutoCloseable {
      * Register the given directory with the WatchService
      */
     private void register(Path dir) throws IOException {
-        WatchKey key = dir.register(watcher, ENTRY_CREATE);
-        keys.put(key, dir);
+        dir.register(watcher, ENTRY_CREATE);
     }
 
     /**
@@ -148,7 +137,6 @@ public class WatchDir implements AutoCloseable {
 
     private WatchDir() throws IOException {
         this.watcher = FileSystems.getDefault().newWatchService();
-        this.keys = new ConcurrentHashMap<>();
         Config config = Configs.INSTANCE.getMainConfig();
         this.recursive = Boolean.parseBoolean(config.getProperty("recursive", Boolean.TRUE.toString()));
         Path dirToWatch = Paths.get(config.getProperty("dirToWatch"));
@@ -161,7 +149,6 @@ public class WatchDir implements AutoCloseable {
         } else {
             register(dirToWatch);
         }
-        logger.info(String.format("only just registered %d dirs", keys.size()));
     }
 
     private Set<EventHandler> getEventHandlers(String eventHandlersAsString) {
